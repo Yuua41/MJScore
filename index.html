@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mahjong Master Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        font-family: "Inter", "Noto Sans JP", sans-serif;
+        background-color: #f8fafc;
+      }
+      input::-webkit-outer-spin-button,
+      input::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+      input[type="number"] {
+        -moz-appearance: textfield;
+      }
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+      .view-section {
+        display: none;
+      }
+      .view-section.active {
+        display: block;
+      }
+      @keyframes highlight {
+        0% {
+          transform: scale(1);
+          box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+        }
+        50% {
+          transform: scale(1.02);
+          box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+        }
+        100% {
+          transform: scale(1);
+        }
+      }
+      .jump-highlight {
+        animation: highlight 1.5s ease-out;
+        border-color: #10b981 !important;
+        z-index: 10;
+      }
+    </style>
+  </head>
+  <body class="min-h-screen bg-slate-50 text-slate-900 pb-10">
+    <header class="bg-emerald-800 text-white p-4 shadow-lg sticky top-0 z-50">
+      <div class="max-w-6xl mx-auto flex justify-between items-center">
+        <h1 class="text-xl font-bold flex items-center gap-2">
+          🀄 麻雀大会開く
+        </h1>
+        <div class="flex gap-2">
+          <button
+            onclick="handleSample()"
+            class="text-[10px] bg-amber-500 hover:bg-amber-600 px-3 py-1 rounded font-bold transition-colors"
+          >
+            サンプルデータ
+          </button>
+          <button
+            onclick="handleReset()"
+            class="text-[10px] bg-red-600 hover:bg-red-700 px-3 py-1 rounded font-bold transition-colors"
+          >
+            リセット
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto p-4 md:p-6">
+      <nav
+        class="flex gap-1 mb-8 bg-white p-1 rounded-xl shadow-sm border border-slate-200"
+      >
+        <button
+          onclick="switchView('setup')"
+          id="nav-setup"
+          class="flex-1 py-2 text-sm font-bold rounded-lg transition-all bg-emerald-600 text-white"
+        >
+          設定
+        </button>
+        <button
+          onclick="switchView('schedule')"
+          id="nav-schedule"
+          class="flex-1 py-2 text-sm font-bold rounded-lg transition-all text-slate-400 opacity-30"
+          disabled
+        >
+          卓組
+        </button>
+        <button
+          onclick="switchView('standings')"
+          id="nav-standings"
+          class="flex-1 py-2 text-sm font-bold rounded-lg transition-all text-slate-400 opacity-30"
+          disabled
+        >
+          成績
+        </button>
+        <button
+          onclick="switchView('individual')"
+          id="nav-individual"
+          class="flex-1 py-2 text-sm font-bold rounded-lg transition-all text-slate-400 opacity-30"
+          disabled
+        >
+          個人
+        </button>
+      </nav>
+
+      <section id="view-setup" class="view-section active">
+        <div
+          class="max-w-2xl mx-auto bg-white p-6 md:p-10 rounded-2xl shadow-sm border border-slate-200 space-y-6"
+        >
+          <h2 class="text-xl font-bold text-slate-800">大会・ルール設定</h2>
+          <div class="space-y-2">
+            <label class="text-sm font-bold text-slate-500"
+              >プレイヤー名（改行またはカンマ区切り）</label
+            >
+            <textarea
+              id="playerInput"
+              rows="6"
+              oninput="updatePlayerCount()"
+              placeholder="アカギ&#13;&#10;Saki..."
+              class="w-full p-4 border rounded-xl bg-slate-50 focus:ring-2 focus:ring-emerald-500 outline-none text-sm text-slate-800"
+            ></textarea>
+            <p class="text-right text-xs text-emerald-600 font-bold">
+              現在: <span id="pCount">0</span>名
+            </p>
+          </div>
+
+          <div
+            class="bg-slate-800 p-6 rounded-2xl space-y-4 shadow-inner text-white"
+          >
+            <div class="grid grid-cols-2 gap-4 text-xs font-bold">
+              <div>
+                持ち点<input
+                  type="number"
+                  id="cfg-start"
+                  value="25000"
+                  class="w-full p-2 bg-slate-700 border border-slate-600 rounded mt-1 outline-none"
+                />
+              </div>
+              <div>
+                返し<input
+                  type="number"
+                  id="cfg-return"
+                  value="30000"
+                  class="w-full p-2 bg-slate-700 border border-slate-600 rounded mt-1 outline-none"
+                />
+              </div>
+              <div>
+                ウマ (1-4)<input
+                  type="number"
+                  id="cfg-uma1"
+                  value="30"
+                  class="w-full p-2 bg-slate-700 border border-slate-600 rounded mt-1 outline-none"
+                />
+              </div>
+              <div>
+                ウマ (2-3)<input
+                  type="number"
+                  id="cfg-uma2"
+                  value="10"
+                  class="w-full p-2 bg-slate-700 border border-slate-600 rounded mt-1 outline-none"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-2">
+              <label class="text-xs font-bold text-slate-500"
+                >同点時の処理</label
+              >
+              <div class="flex bg-slate-100 p-1 rounded-lg">
+                <button
+                  onclick="setTieBreak('kamicha')"
+                  id="btn-kamicha"
+                  class="flex-1 py-2 text-[10px] font-bold rounded"
+                >
+                  上家取り
+                </button>
+                <button
+                  onclick="setTieBreak('split')"
+                  id="btn-split"
+                  class="flex-1 py-2 text-[10px] font-bold rounded bg-white shadow"
+                >
+                  同点分け
+                </button>
+              </div>
+            </div>
+            <div class="space-y-2">
+              <label class="text-xs font-bold text-slate-500"
+                >席順を表示する</label
+              >
+              <div class="flex items-center h-full pt-2">
+                <input
+                  type="checkbox"
+                  id="cfg-showSeats"
+                  checked
+                  class="w-5 h-5 accent-emerald-600"
+                />
+              </div>
+            </div>
+          </div>
+          <div class="space-y-2">
+            <label class="text-xs font-bold text-slate-500">試合数</label>
+            <select
+              id="numRounds"
+              class="w-full p-2 bg-slate-50 border border-slate-200 rounded text-xs font-bold"
+            >
+              <option value="1">1回戦</option>
+              <option value="2">2回戦</option>
+              <option value="3">3回戦</option>
+              <option value="4" selected>4回戦</option>
+              <option value="5">5回戦</option>
+              <option value="6">6回戦</option>
+              <option value="7">7回戦</option>
+              <option value="8">8回戦</option>
+            </select>
+          </div>
+          <button
+            onclick="startTournament()"
+            class="w-full bg-emerald-600 text-white py-4 rounded-xl font-bold hover:bg-emerald-700 shadow-md transition-all active:scale-95"
+          >
+            大会開始
+          </button>
+        </div>
+      </section>
+
+      <section id="view-schedule" class="view-section">
+        <div
+          id="round-tabs"
+          class="flex gap-2 overflow-x-auto pb-2 no-scrollbar mb-6"
+        ></div>
+        <div
+          id="tables-container"
+          class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"
+        ></div>
+      </section>
+
+      <section id="view-standings" class="view-section">
+        <div
+          class="bg-white p-6 md:p-8 rounded-2xl border border-slate-200 shadow-sm overflow-x-auto"
+        >
+          <h2
+            class="text-xl font-bold text-slate-800 mb-8 flex items-center gap-2"
+          >
+            📊 総合成績
+          </h2>
+          <div class="min-w-[800px]" id="standings-table-container"></div>
+        </div>
+      </section>
+
+      <section id="view-individual" class="view-section">
+        <div class="max-w-xl mx-auto space-y-6">
+          <div
+            class="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm"
+          >
+            <h2 class="text-xl font-bold mb-6 text-slate-800">👤 個人検索</h2>
+            <select
+              id="individual-select"
+              onchange="renderIndividualStats(this.value)"
+              class="w-full p-4 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:ring-2 focus:ring-emerald-500 font-bold mb-8 cursor-pointer"
+            ></select>
+            <div id="individual-content"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const STORAGE_KEY = "mahjong_manager_v1";
+      const SEAT_LABELS = ["東", "南", "西", "北"];
+      let tournament = null;
+      let activeRound = 1;
+      let tieBreakRule = "split";
+
+      // --- ロジック ---
+      function getPermutations(arr) {
+        if (arr.length <= 1) return [arr];
+        const perms = [];
+        for (let i = 0; i < arr.length; i++) {
+          const rest = getPermutations([
+            ...arr.slice(0, i),
+            ...arr.slice(i + 1),
+          ]);
+          for (const p of rest) perms.push([arr[i], ...p]);
+        }
+        return perms;
+      }
+
+      function findBestSeatAssignment(playerIds, history) {
+        const permutations = getPermutations(playerIds);
+        let minCost = Infinity;
+        let best = playerIds;
+        for (const p of permutations) {
+          let cost = 0;
+          for (let i = 0; i < 4; i++) {
+            const count = history[p[i]] ? history[p[i]][i] : 0;
+            cost += Math.pow(count, 2);
+          }
+          if (cost < minCost) {
+            minCost = cost;
+            best = p;
+          }
+        }
+        return best;
+      }
+
+      function generateSchedule(players, numRounds, startingPoints) {
+        const rounds = [];
+        const seatCounts = {};
+        players.forEach((p) => (seatCounts[p.id] = [0, 0, 0, 0]));
+        for (let r = 1; r <= numRounds; r++) {
+          const shuffled = [...players].sort(() => Math.random() - 0.5);
+          const tables = [];
+          const numTables = Math.floor(shuffled.length / 4);
+          for (let t = 0; t < numTables; t++) {
+            const groupIds = shuffled
+              .slice(t * 4, (t + 1) * 4)
+              .map((p) => p.id);
+            const bestP = findBestSeatAssignment(groupIds, seatCounts);
+            bestP.forEach((id, idx) => seatCounts[id][idx]++);
+            tables.push({
+              id: `r${r}-t${t + 1}`,
+              playerIds: bestP,
+              results: bestP.map((id) => ({
+                playerId: id,
+                score: startingPoints,
+                point: 0,
+                rank: 0,
+              })),
+              isValidated: false,
+              hasExtraSticks: false,
+            });
+          }
+          rounds.push({ roundNumber: r, tables });
+        }
+        return rounds;
+      }
+
+      function calculateTableResult(table, config) {
+        const umaValues = [
+          config.uma1,
+          config.uma2,
+          -config.uma2,
+          -config.uma1,
+        ];
+        const oka = ((config.returnPoints - config.startingPoints) * 4) / 1000;
+        if (config.tieBreakRule === "kamicha") {
+          const sorted = table.results
+            .map((r, i) => ({ ...r, seat: i }))
+            .sort((a, b) =>
+              b.score !== a.score ? b.score - a.score : a.seat - b.seat
+            );
+          return table.results.map((res) => {
+            const idx = sorted.findIndex((s) => s.playerId === res.playerId);
+            const rank = idx + 1;
+            let p = (res.score - config.returnPoints) / 1000 + umaValues[idx];
+            if (rank === 1) p += oka;
+            return { ...res, rank, point: Math.round(p * 10) / 10 };
+          });
+        } else {
+          const final = table.results.map((r) => ({ ...r, rank: 0, point: 0 }));
+          const scoreGroups = {};
+          table.results.forEach((r) => {
+            if (!scoreGroups[r.score]) scoreGroups[r.score] = [];
+            scoreGroups[r.score].push(r.playerId);
+          });
+          const sortedScores = Object.keys(scoreGroups)
+            .map(Number)
+            .sort((a, b) => b - a);
+          let curRank = 1;
+          sortedScores.forEach((score) => {
+            const pIds = scoreGroups[score];
+            const count = pIds.length;
+            let totalUma = 0,
+              totalRank = 0;
+            for (let i = 0; i < count; i++) {
+              totalUma += umaValues[curRank - 1 + i];
+              totalRank += curRank + i;
+            }
+            const avgUma = totalUma / count;
+            const avgRank = totalRank / count;
+            const splitOka = curRank === 1 ? oka / count : 0;
+            pIds.forEach((id) => {
+              const idx = final.findIndex((f) => f.playerId === id);
+              final[idx].rank = avgRank;
+              final[idx].point =
+                Math.round(
+                  ((score - config.returnPoints) / 1000 + avgUma + splitOka) *
+                    10
+                ) / 10;
+            });
+            curRank += count;
+          });
+          return final;
+        }
+      }
+
+      function getStandings() {
+        if (!tournament) return [];
+        const map = new Map();
+        tournament.players.forEach((p) =>
+          map.set(p.id, { pts: 0, sc: 0, ranks: [], count: 0 })
+        );
+        tournament.rounds.forEach((r) =>
+          r.tables.forEach((t) => {
+            if (t.isValidated)
+              t.results.forEach((res) => {
+                const d = map.get(res.playerId);
+                d.pts += res.point;
+                d.sc += res.score;
+                d.ranks.push(res.rank);
+                d.count++;
+              });
+          })
+        );
+        return tournament.players
+          .map((p) => {
+            const d = map.get(p.id);
+            return {
+              playerId: p.id,
+              playerName: p.name,
+              totalPoints: d.pts,
+              totalScore: d.sc,
+              averageRank: d.ranks.length
+                ? d.ranks.reduce((a, b) => a + b, 0) / d.ranks.length
+                : 0,
+              gamesPlayed: d.count,
+            };
+          })
+          .sort((a, b) =>
+            Math.abs(b.totalPoints - a.totalPoints) > 0.001
+              ? b.totalPoints - a.totalPoints
+              : b.totalScore - a.totalScore
+          );
+      }
+
+      // --- UI アクション ---
+      function switchView(viewName) {
+        document
+          .querySelectorAll(".view-section")
+          .forEach((s) => s.classList.remove("active"));
+        document.getElementById(`view-${viewName}`).classList.add("active");
+        document.querySelectorAll("nav button").forEach((b) => {
+          b.classList.remove("bg-emerald-600", "text-white", "shadow-sm");
+          b.classList.add("text-slate-400");
+        });
+        const activeNav = document.getElementById(`nav-${viewName}`);
+        activeNav.classList.add("bg-emerald-600", "text-white", "shadow-sm");
+        activeNav.classList.remove("text-slate-400");
+        if (viewName === "schedule") renderSchedule();
+        if (viewName === "standings") renderStandings();
+        if (viewName === "individual") renderIndividualSelect();
+      }
+
+      function updatePlayerCount() {
+        const val = document.getElementById("playerInput").value;
+        const count = val
+          .split(/[\n,]+/)
+          .map((n) => n.trim())
+          .filter((n) => n).length;
+        document.getElementById("pCount").innerText = count;
+      }
+
+      function setTieBreak(rule) {
+        tieBreakRule = rule;
+        document.getElementById("btn-kamicha").className =
+          rule === "kamicha"
+            ? "flex-1 py-2 text-[10px] font-bold rounded bg-white shadow"
+            : "flex-1 py-2 text-[10px] font-bold rounded";
+        document.getElementById("btn-split").className =
+          rule === "split"
+            ? "flex-1 py-2 text-[10px] font-bold rounded bg-white shadow"
+            : "flex-1 py-2 text-[10px] font-bold rounded";
+      }
+
+      function startTournament() {
+        let names = document
+          .getElementById("playerInput")
+          .value.split(/[\n,]+/)
+          .map((n) => n.trim())
+          .filter((n) => n);
+        if (!names.length) return alert("名前を入力してください");
+        while (names.length % 4 !== 0)
+          names.push(`黒子${4 - (names.length % 4)}`);
+        const players = names.map((n) => ({
+          id: crypto.randomUUID(),
+          name: n,
+        }));
+        const config = {
+          startingPoints: +document.getElementById("cfg-start").value,
+          returnPoints: +document.getElementById("cfg-return").value,
+          uma1: +document.getElementById("cfg-uma1").value,
+          uma2: +document.getElementById("cfg-uma2").value,
+          showSeats: document.getElementById("cfg-showSeats").checked,
+          tieBreakRule: tieBreakRule,
+        };
+        tournament = {
+          players,
+          rounds: generateSchedule(
+            players,
+            +document.getElementById("numRounds").value,
+            config.startingPoints
+          ),
+          config,
+        };
+        save();
+        enableNav();
+        switchView("schedule");
+      }
+
+      function enableNav() {
+        ["schedule", "standings", "individual"].forEach((id) => {
+          const btn = document.getElementById(`nav-${id}`);
+          btn.disabled = false;
+          btn.classList.remove("opacity-30");
+        });
+      }
+
+      function formatP(v) {
+        return `${v < 0 ? "▲" : "+"}${Math.abs(v).toFixed(1)}`;
+      }
+
+      // --- 描画 ---
+      function renderSchedule() {
+        const tabContainer = document.getElementById("round-tabs");
+        tabContainer.innerHTML = tournament.rounds
+          .map(
+            (r) => `
+                <button onclick="activeRound=${
+                  r.roundNumber
+                }; renderSchedule()" class="px-5 py-2 rounded-lg font-bold whitespace-nowrap transition-all ${
+              activeRound === r.roundNumber
+                ? "bg-slate-800 text-white shadow-md"
+                : "bg-white border text-slate-400"
+            }">
+                    ${r.roundNumber}回戦
+                </button>
+            `
+          )
+          .join("");
+
+        const tableContainer = document.getElementById("tables-container");
+        const round = tournament.rounds[activeRound - 1];
+        tableContainer.innerHTML = round.tables
+          .map((t, tIdx) => {
+            const resultsHtml = t.playerIds
+              .map((pId, pIdx) => {
+                const p = tournament.players.find((x) => x.id === pId);
+                const res = t.results.find((x) => x.playerId === pId);
+                const isNeg = res.score < 0;
+                const val = Math.abs(res.score / 100);
+                return `
+                        <div class="space-y-1">
+                            <div class="flex justify-between text-[10px] font-bold">
+                                <span class="text-slate-700 flex gap-2">
+                                    ${
+                                      tournament.config.showSeats
+                                        ? `<span class="text-slate-300 font-mono w-4">${SEAT_LABELS[pIdx]}</span>`
+                                        : ""
+                                    }
+                                    ${p.name}
+                                </span>
+                                ${
+                                  t.isValidated
+                                    ? `<span class="${
+                                        res.point >= 0
+                                          ? "text-emerald-600"
+                                          : "text-red-500"
+                                      }">${res.rank}位 / ${formatP(
+                                        res.point
+                                      )}</span>`
+                                    : ""
+                                }
+                            </div>
+                            <div class="flex gap-1.5">
+                                <button ${
+                                  t.isValidated ? "disabled" : ""
+                                } onclick="toggleNegative(${
+                  activeRound - 1
+                }, ${tIdx}, '${pId}')" class="px-2.5 rounded border transition-all text-[10px] font-bold ${
+                  isNeg
+                    ? "bg-red-50 border-red-200 text-red-600"
+                    : "bg-slate-50 border-slate-200 text-slate-300"
+                }">▲</button>
+                                <input type="number" ${
+                                  t.isValidated ? "disabled" : ""
+                                } value="${val || ""}" oninput="updateScore(${
+                  activeRound - 1
+                }, ${tIdx}, '${pId}', this.value)" class="flex-grow p-2 rounded border border-slate-200 text-right font-bold text-sm outline-none focus:ring-1 focus:ring-emerald-400" placeholder="0">
+                                <span class="text-[10px] text-slate-300 self-center font-bold font-mono">00</span>
+                            </div>
+                        </div>`;
+              })
+              .join("");
+
+            return `
+                    <div id="table-card-${activeRound}-${
+              tIdx + 1
+            }" class="bg-white rounded-2xl border-2 transition-all shadow-sm ${
+              t.isValidated ? "border-emerald-500" : "border-slate-100"
+            }">
+                        <div class="p-3 text-white font-bold flex justify-between items-center rounded-t-xl ${
+                          t.isValidated ? "bg-emerald-500" : "bg-slate-700"
+                        }">
+                            <span>卓 ${tIdx + 1}</span>
+                            <label class="flex items-center gap-1.5 text-[10px] cursor-pointer bg-black/10 px-2 py-0.5 rounded">
+                                <input type="checkbox" onchange="toggleExtraSticks(${
+                                  activeRound - 1
+                                }, ${tIdx}, this.checked)" ${
+              t.hasExtraSticks ? "checked" : ""
+            } ${t.isValidated ? "disabled" : ""} class="w-3 h-3">
+                                <span>卓外点棒あり</span>
+                            </label>
+                        </div>
+                        <div class="p-5 space-y-4">
+                            ${resultsHtml}
+                            <button onclick="confirmTable(${
+                              activeRound - 1
+                            }, ${tIdx})" class="w-full py-3 rounded-xl font-bold text-xs transition-all ${
+              t.isValidated
+                ? "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                : "bg-emerald-600 text-white shadow-sm hover:bg-emerald-700"
+            }">
+                                ${t.isValidated ? "スコア修正" : "スコア確定"}
+                            </button>
+                        </div>
+                    </div>`;
+          })
+          .join("");
+      }
+
+      function toggleNegative(rIdx, tIdx, pId) {
+        const table = tournament.rounds[rIdx].tables[tIdx];
+        const res = table.results.find((r) => r.playerId === pId);
+        res.score = res.score * -1;
+        renderSchedule();
+        save();
+      }
+
+      function updateScore(rIdx, tIdx, pId, val) {
+        const table = tournament.rounds[rIdx].tables[tIdx];
+        const res = table.results.find((r) => r.playerId === pId);
+        const isNeg = res.score < 0;
+        res.score = (isNeg ? -1 : 1) * (Math.abs(parseInt(val)) || 0) * 100;
+        save();
+      }
+
+      function toggleExtraSticks(rIdx, tIdx, checked) {
+        tournament.rounds[rIdx].tables[tIdx].hasExtraSticks = checked;
+        save();
+      }
+
+      function confirmTable(rIdx, tIdx) {
+        const table = tournament.rounds[rIdx].tables[tIdx];
+        if (!table.isValidated) {
+          const totalScore = table.results.reduce((sum, r) => sum + r.score, 0);
+          const expectedTotal = tournament.config.startingPoints * 4;
+          if (!table.hasExtraSticks && totalScore !== expectedTotal) {
+            if (
+              !confirm(
+                `合計（${totalScore.toLocaleString()}）が初期点（${expectedTotal.toLocaleString()}）と一致しません。確定しますか？`
+              )
+            )
+              return;
+          }
+          table.results = calculateTableResult(table, tournament.config);
+          table.isValidated = true;
+        } else {
+          table.isValidated = false;
+        }
+        save();
+        renderSchedule();
+      }
+
+      function renderStandings() {
+        const standings = getStandings();
+        const container = document.getElementById("standings-table-container");
+        let roundsHeader = tournament.rounds
+          .map((r) => `<th class="pb-4 px-2 text-right">R${r.roundNumber}</th>`)
+          .join("");
+        let rows = standings
+          .map((s, i) => {
+            let roundCells = tournament.rounds
+              .map((r) => {
+                const table = r.tables.find((t) =>
+                  t.playerIds.includes(s.playerId)
+                );
+                const res = table
+                  ? table.results.find((x) => x.playerId === s.playerId)
+                  : null;
+                const isValid = table && table.isValidated;
+                return `<td class="py-4 px-2 text-right font-mono text-xs ${
+                  !isValid
+                    ? "text-slate-200"
+                    : res.point >= 0
+                    ? "text-slate-600"
+                    : "text-rose-400"
+                }">
+                        ${isValid ? formatP(res.point) : "-"}
+                    </td>`;
+              })
+              .join("");
+            return `<tr class="border-b border-slate-50">
+                    <td class="py-4 px-2 text-center font-bold text-xs">${
+                      i + 1
+                    }</td>
+                    <td class="py-4 px-2"><button onclick="viewIndividual('${
+                      s.playerId
+                    }')" class="font-bold text-emerald-700 hover:underline">${
+              s.playerName
+            }</button></td>
+                    ${roundCells}
+                    <td class="py-4 px-2 text-right font-black text-base ${
+                      s.totalPoints >= 0 ? "text-emerald-600" : "text-rose-500"
+                    }">${formatP(s.totalPoints)}</td>
+                </tr>`;
+          })
+          .join("");
+        container.innerHTML = `<table class="w-full text-left text-sm"><thead><tr class="text-slate-400 text-[10px] uppercase font-bold"><th>Rank</th><th>Player</th>${roundsHeader}<th>Total</th></tr></thead><tbody>${rows}</tbody></table>`;
+      }
+
+      function viewIndividual(pId) {
+        document.getElementById("individual-select").value = pId;
+        renderIndividualStats(pId);
+        switchView("individual");
+      }
+
+      function renderIndividualSelect() {
+        const select = document.getElementById("individual-select");
+        const current = select.value;
+        select.innerHTML =
+          '<option value="">プレイヤーを選択</option>' +
+          tournament.players
+            .map((p) => `<option value="${p.id}">${p.name}</option>`)
+            .join("");
+        select.value = current;
+      }
+
+      function renderIndividualStats(pId) {
+        const content = document.getElementById("individual-content");
+        if (!pId) {
+          content.innerHTML =
+            '<div class="py-20 text-center text-slate-300">選択してください</div>';
+          return;
+        }
+        const stats = getStandings().find((s) => s.playerId === pId);
+        const historyHtml = tournament.rounds
+          .map((r) => {
+            const t = r.tables.find((x) => x.playerIds.includes(pId));
+            const res = t ? t.results.find((x) => x.playerId === pId) : null;
+            const seatIdx = t ? t.playerIds.indexOf(pId) : -1;
+            const tIdx = t
+              ? tournament.rounds[r.roundNumber - 1].tables.indexOf(t) + 1
+              : 0;
+            return `
+                    <div onclick="goToTable(${
+                      r.roundNumber
+                    }, ${tIdx})" class="cursor-pointer flex justify-between items-center p-4 bg-slate-50 rounded-xl border border-slate-100 hover:bg-white hover:border-emerald-400 hover:shadow-md transition-all group">
+                        <div class="flex items-center gap-4">
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span class="font-bold text-slate-700">${
+                                      r.roundNumber
+                                    }回戦</span>
+                                    ${
+                                      tournament.config.showSeats &&
+                                      seatIdx !== -1
+                                        ? `<span class="text-[10px] bg-white border border-slate-200 px-1.5 py-0.5 rounded text-slate-400 font-bold">${SEAT_LABELS[seatIdx]}家</span>`
+                                        : ""
+                                    }
+                                </div>
+                                ${
+                                  t && t.isValidated
+                                    ? `<div class="text-[10px] font-bold text-emerald-600">${
+                                        res.rank
+                                      }位 / ${formatP(res.point)}pt</div>`
+                                    : '<div class="text-[10px] text-slate-300 italic">未確定</div>'
+                                }
+                            </div>
+                        </div>
+                        ${
+                          t
+                            ? `<span class="text-[10px] bg-slate-800 text-white px-3 py-1 rounded-full font-bold group-hover:bg-emerald-600 transition-colors">卓 ${tIdx}</span>`
+                            : ""
+                        }
+                    </div>`;
+          })
+          .join("");
+        content.innerHTML = `<div class="grid grid-cols-2 gap-4 mb-6"><div class="bg-emerald-50 p-4 rounded-xl text-center"><p class="text-[10px] text-emerald-600 font-bold uppercase">Total</p><p class="text-xl font-black">${formatP(
+          stats.totalPoints
+        )}</p></div><div class="bg-slate-50 p-4 rounded-xl text-center"><p class="text-[10px] text-slate-400 font-bold uppercase">Avg Rank</p><p class="text-xl font-black">${stats.averageRank.toFixed(
+          2
+        )}</p></div></div><div class="space-y-3"> ${historyHtml} </div>`;
+      }
+
+      function goToTable(roundNum, tableNum) {
+        if (!tableNum) return;
+        activeRound = roundNum;
+        switchView("schedule");
+        setTimeout(() => {
+          const targetId = `table-card-${roundNum}-${tableNum}`;
+          const targetTable = document.getElementById(targetId);
+          if (targetTable) {
+            targetTable.scrollIntoView({ behavior: "smooth", block: "center" });
+            targetTable.classList.add("jump-highlight");
+            setTimeout(
+              () => targetTable.classList.remove("jump-highlight"),
+              2000
+            );
+          }
+        }, 150);
+      }
+
+      function save() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(tournament));
+      }
+      function handleReset() {
+        if (confirm("リセットしますか？")) {
+          localStorage.removeItem(STORAGE_KEY);
+          location.reload();
+        }
+      }
+      function handleSample() {
+        document.getElementById("playerInput").value = [
+          "アカギ",
+          "カイジ",
+          "衣",
+          "照",
+          "一姫",
+          "咲",
+          "優希",
+          "哲也",
+        ].join("\n");
+        updatePlayerCount();
+        startTournament();
+        tournament.rounds.forEach((r) =>
+          r.tables.forEach((t) => {
+            t.results.forEach(
+              (res, i) => (res.score = [40000, 30000, 20000, 10000][i])
+            );
+            t.results = calculateTableResult(t, tournament.config);
+            t.isValidated = true;
+          })
+        );
+        save();
+        renderStandings();
+        switchView("standings");
+      }
+
+      window.onload = () => {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          tournament = JSON.parse(saved);
+          enableNav();
+          switchView("standings");
+        }
+      };
+    </script>
+  </body>
+</html>
