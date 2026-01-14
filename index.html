@@ -286,7 +286,6 @@
       let activeRound = 1;
       let tieBreakRule = "split";
 
-      // --- ロジック ---
       function getPermutations(arr) {
         if (arr.length <= 1) return [arr];
         const perms = [];
@@ -337,7 +336,7 @@
               playerIds: bestP,
               results: bestP.map((id) => ({
                 playerId: id,
-                score: startingPoints,
+                score: 0, // 初期スコアを0に設定
                 point: 0,
                 rank: 0,
               })),
@@ -448,7 +447,6 @@
           );
       }
 
-      // --- UI アクション ---
       function switchView(viewName) {
         document
           .querySelectorAll(".view-section")
@@ -534,7 +532,6 @@
         return `${v < 0 ? "▲" : "+"}${Math.abs(v).toFixed(1)}`;
       }
 
-      // --- 描画 ---
       function renderSchedule() {
         const tabContainer = document.getElementById("round-tabs");
         tabContainer.innerHTML = tournament.rounds
@@ -562,7 +559,10 @@
                 const p = tournament.players.find((x) => x.id === pId);
                 const res = t.results.find((x) => x.playerId === pId);
                 const isNeg = res.score < 0;
-                const val = Math.abs(res.score / 100);
+                // 表示用の値（0の場合は空欄にしてプレースホルダーを見せる）
+                const displayVal =
+                  res.score === 0 ? "" : Math.abs(res.score / 100);
+
                 return `
                         <div class="space-y-1">
                             <div class="flex justify-between text-[10px] font-bold">
@@ -596,11 +596,15 @@
                     ? "bg-red-50 border-red-200 text-red-600"
                     : "bg-slate-50 border-slate-200 text-slate-300"
                 }">▲</button>
-                                <input type="number" ${
-                                  t.isValidated ? "disabled" : ""
-                                } value="${val || ""}" oninput="updateScore(${
-                  activeRound - 1
-                }, ${tIdx}, '${pId}', this.value)" class="flex-grow p-2 rounded border border-slate-200 text-right font-bold text-sm outline-none focus:ring-1 focus:ring-emerald-400" placeholder="0">
+                                <input type="number" 
+                                  ${t.isValidated ? "disabled" : ""} 
+                                  value="${displayVal}" 
+                                  onfocus="this.select()"
+                                  oninput="updateScore(${
+                                    activeRound - 1
+                                  }, ${tIdx}, '${pId}', this.value)" 
+                                  class="flex-grow p-2 rounded border border-slate-200 text-right font-bold text-sm outline-none focus:ring-1 focus:ring-emerald-400" 
+                                  placeholder="0">
                                 <span class="text-[10px] text-slate-300 self-center font-bold font-mono">00</span>
                             </div>
                         </div>`;
@@ -655,7 +659,9 @@
         const table = tournament.rounds[rIdx].tables[tIdx];
         const res = table.results.find((r) => r.playerId === pId);
         const isNeg = res.score < 0;
-        res.score = (isNeg ? -1 : 1) * (Math.abs(parseInt(val)) || 0) * 100;
+        // 入力が空の場合は内部的に0にする
+        const numericVal = val === "" ? 0 : Math.abs(parseInt(val));
+        res.score = (isNeg ? -1 : 1) * numericVal * 100;
         save();
       }
 
