@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
@@ -54,6 +54,27 @@
         animation: highlight 1.5s ease-out;
         border-color: #10b981 !important;
         z-index: 10;
+      }
+      .player-input-container {
+        position: relative;
+        display: flex;
+      }
+      .line-numbers {
+        text-align: right;
+        padding: 1rem 0.5rem;
+        background: #f1f5f9;
+        color: #94a3b8;
+        font-family: monospace;
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+        border-radius: 0.75rem 0 0 0.75rem;
+        border: 1px solid #e2e8f0;
+        border-right: none;
+        user-select: none;
+      }
+      #playerInput {
+        border-top-left-radius: 0;
+        border-bottom-left-radius: 0;
       }
     </style>
   </head>
@@ -124,17 +145,22 @@
           <h2 class="text-xl font-bold text-slate-800">大会・ルール設定</h2>
           <div class="space-y-2">
             <label class="text-sm font-bold text-slate-500"
-              >プレイヤー名（改行またはカンマ区切り）</label
-            >
-            <textarea
-              id="playerInput"
-              rows="6"
-              oninput="updatePlayerCount()"
-              placeholder="アカギ&#13;&#10;Saki..."
-              class="w-full p-4 border rounded-xl bg-slate-50 focus:ring-2 focus:ring-emerald-500 outline-none text-sm text-slate-800"
-            ></textarea>
+              >プレイヤー名（改行または半角カンマ区切り）
+            </label>
+            <div class="player-input-container">
+              <div id="lineNumbers" class="line-numbers">1</div>
+              <textarea
+                id="playerInput"
+                rows="6"
+                oninput="updatePlayerCount()"
+                placeholder="アカギ&#13;&#10;Saki..."
+                class="w-full p-4 border border-slate-200 rounded-r-xl bg-slate-50 focus:ring-2 focus:ring-emerald-500 outline-none text-sm text-slate-800"
+              ></textarea>
+            </div>
             <p class="text-right text-xs text-emerald-600 font-bold">
-              現在: <span id="pCount">0</span>名
+              現在:
+              <span id="pCount">0</span
+              >名(4の倍数になるように不足分は黒子が追加されます)
             </p>
           </div>
 
@@ -200,17 +226,14 @@
               </div>
             </div>
             <div class="space-y-2">
-              <label class="text-xs font-bold text-slate-500"
-                >席順を表示する</label
+              <label class="text-xs font-bold text-slate-500"> 席順設定 </label>
+              <select
+                id="cfg-seatMode"
+                class="w-full p-2 bg-slate-50 border border-slate-200 rounded text-[10px] font-bold"
               >
-              <div class="flex items-center h-full pt-2">
-                <input
-                  type="checkbox"
-                  id="cfg-showSeats"
-                  checked
-                  class="w-5 h-5 accent-emerald-600"
-                />
-              </div>
+                <option value="random">ランダム生成</option>
+                <option value="none">席順を表示しない</option>
+              </select>
             </div>
           </div>
           <div class="space-y-2">
@@ -253,11 +276,16 @@
         <div
           class="bg-white p-6 md:p-8 rounded-2xl border border-slate-200 shadow-sm overflow-x-auto"
         >
-          <h2
-            class="text-xl font-bold text-slate-800 mb-8 flex items-center gap-2"
-          >
-            📊 総合成績
-          </h2>
+          <div class="flex justify-between items-center mb-8">
+            <h2
+              class="text-xl font-bold text-slate-800 flex items-center gap-2"
+            >
+              📊 総合成績
+            </h2>
+            <span class="text-[10px] text-slate-400"
+              >※項目名クリックで並び替え</span
+            >
+          </div>
           <div class="min-w-[800px]" id="standings-table-container"></div>
         </div>
       </section>
@@ -285,6 +313,7 @@
       let tournament = null;
       let activeRound = 1;
       let tieBreakRule = "split";
+      let sortConfig = { key: "totalPoints", direction: "desc" };
 
       function getPermutations(arr) {
         if (arr.length <= 1) return [arr];
@@ -317,7 +346,7 @@
         return best;
       }
 
-      function generateSchedule(players, numRounds, startingPoints) {
+      function generateSchedule(players, numRounds) {
         const rounds = [];
         const seatCounts = {};
         players.forEach((p) => (seatCounts[p.id] = [0, 0, 0, 0]));
@@ -336,7 +365,7 @@
               playerIds: bestP,
               results: bestP.map((id) => ({
                 playerId: id,
-                score: 0, // 初期スコアを0に設定
+                score: 0,
                 point: 0,
                 rank: 0,
               })),
@@ -361,7 +390,7 @@
           const sorted = table.results
             .map((r, i) => ({ ...r, seat: i }))
             .sort((a, b) =>
-              b.score !== a.score ? b.score - a.score : a.seat - b.seat
+              b.score !== a.score ? b.score - a.score : a.seat - b.seat,
             );
           return table.results.map((res) => {
             const idx = sorted.findIndex((s) => s.playerId === res.playerId);
@@ -399,7 +428,7 @@
               final[idx].point =
                 Math.round(
                   ((score - config.returnPoints) / 1000 + avgUma + splitOka) *
-                    10
+                    10,
                 ) / 10;
             });
             curRank += count;
@@ -408,11 +437,19 @@
         }
       }
 
+      // ヘルパー：表示用の名前（番号付き）を取得
+      function getDisplayName(pId) {
+        if (!tournament) return "";
+        const idx = tournament.players.findIndex((p) => p.id === pId);
+        const p = tournament.players[idx];
+        return p ? `${idx + 1}. ${p.name}` : "";
+      }
+
       function getStandings() {
         if (!tournament) return [];
         const map = new Map();
         tournament.players.forEach((p) =>
-          map.set(p.id, { pts: 0, sc: 0, ranks: [], count: 0 })
+          map.set(p.id, { pts: 0, sc: 0, ranks: [], count: 0 }),
         );
         tournament.rounds.forEach((r) =>
           r.tables.forEach((t) => {
@@ -424,27 +461,35 @@
                 d.ranks.push(res.rank);
                 d.count++;
               });
-          })
+          }),
         );
-        return tournament.players
-          .map((p) => {
-            const d = map.get(p.id);
-            return {
-              playerId: p.id,
-              playerName: p.name,
-              totalPoints: d.pts,
-              totalScore: d.sc,
-              averageRank: d.ranks.length
-                ? d.ranks.reduce((a, b) => a + b, 0) / d.ranks.length
-                : 0,
-              gamesPlayed: d.count,
-            };
-          })
-          .sort((a, b) =>
-            Math.abs(b.totalPoints - a.totalPoints) > 0.001
-              ? b.totalPoints - a.totalPoints
-              : b.totalScore - a.totalScore
-          );
+        let list = tournament.players.map((p, idx) => {
+          const d = map.get(p.id);
+          return {
+            playerId: p.id,
+            playerName: p.name,
+            displayIdx: idx + 1,
+            totalPoints: d.pts,
+            totalScore: d.sc,
+            averageRank: d.ranks.length
+              ? d.ranks.reduce((a, b) => a + b, 0) / d.ranks.length
+              : 0,
+            gamesPlayed: d.count,
+          };
+        });
+
+        list.sort((a, b) => {
+          let valA = a[sortConfig.key];
+          let valB = b[sortConfig.key];
+          if (typeof valA === "string") {
+            return sortConfig.direction === "asc"
+              ? valA.localeCompare(valB)
+              : valB.localeCompare(valA);
+          }
+          return sortConfig.direction === "asc" ? valA - valB : valB - valA;
+        });
+
+        return list;
       }
 
       function switchView(viewName) {
@@ -466,11 +511,20 @@
 
       function updatePlayerCount() {
         const val = document.getElementById("playerInput").value;
-        const count = val
+        const names = val
           .split(/[\n,]+/)
           .map((n) => n.trim())
-          .filter((n) => n).length;
-        document.getElementById("pCount").innerText = count;
+          .filter((n) => n);
+        document.getElementById("pCount").innerText = names.length;
+
+        const lineNumbers = document.getElementById("lineNumbers");
+        const lines = val.split("\n").length;
+        const maxLines = Math.max(lines, names.length, 1);
+        let numHtml = "";
+        for (let i = 1; i <= maxLines; i++) {
+          numHtml += i + "<br>";
+        }
+        lineNumbers.innerHTML = numHtml;
       }
 
       function setTieBreak(rule) {
@@ -503,7 +557,7 @@
           returnPoints: +document.getElementById("cfg-return").value,
           uma1: +document.getElementById("cfg-uma1").value,
           uma2: +document.getElementById("cfg-uma2").value,
-          showSeats: document.getElementById("cfg-showSeats").checked,
+          seatMode: document.getElementById("cfg-seatMode").value,
           tieBreakRule: tieBreakRule,
         };
         tournament = {
@@ -511,7 +565,6 @@
           rounds: generateSchedule(
             players,
             +document.getElementById("numRounds").value,
-            config.startingPoints
           ),
           config,
         };
@@ -540,13 +593,13 @@
                 <button onclick="activeRound=${
                   r.roundNumber
                 }; renderSchedule()" class="px-5 py-2 rounded-lg font-bold whitespace-nowrap transition-all ${
-              activeRound === r.roundNumber
-                ? "bg-slate-800 text-white shadow-md"
-                : "bg-white border text-slate-400"
-            }">
+                  activeRound === r.roundNumber
+                    ? "bg-slate-800 text-white shadow-md"
+                    : "bg-white border text-slate-400"
+                }">
                     ${r.roundNumber}回戦
                 </button>
-            `
+            `,
           )
           .join("");
 
@@ -556,10 +609,9 @@
           .map((t, tIdx) => {
             const resultsHtml = t.playerIds
               .map((pId, pIdx) => {
-                const p = tournament.players.find((x) => x.id === pId);
+                const displayName = getDisplayName(pId);
                 const res = t.results.find((x) => x.playerId === pId);
                 const isNeg = res.score < 0;
-                // 表示用の値（0の場合は空欄にしてプレースホルダーを見せる）
                 const displayVal =
                   res.score === 0 ? "" : Math.abs(res.score / 100);
 
@@ -568,11 +620,11 @@
                             <div class="flex justify-between text-[10px] font-bold">
                                 <span class="text-slate-700 flex gap-2">
                                     ${
-                                      tournament.config.showSeats
+                                      tournament.config.seatMode === "random"
                                         ? `<span class="text-slate-300 font-mono w-4">${SEAT_LABELS[pIdx]}</span>`
                                         : ""
                                     }
-                                    ${p.name}
+                                    ${displayName}
                                 </span>
                                 ${
                                   t.isValidated
@@ -581,7 +633,7 @@
                                           ? "text-emerald-600"
                                           : "text-red-500"
                                       }">${res.rank}位 / ${formatP(
-                                        res.point
+                                        res.point,
                                       )}</span>`
                                     : ""
                                 }
@@ -590,12 +642,12 @@
                                 <button ${
                                   t.isValidated ? "disabled" : ""
                                 } onclick="toggleNegative(${
-                  activeRound - 1
-                }, ${tIdx}, '${pId}')" class="px-2.5 rounded border transition-all text-[10px] font-bold ${
-                  isNeg
-                    ? "bg-red-50 border-red-200 text-red-600"
-                    : "bg-slate-50 border-slate-200 text-slate-300"
-                }">▲</button>
+                                  activeRound - 1
+                                }, ${tIdx}, '${pId}')" class="px-2.5 rounded border transition-all text-[10px] font-bold ${
+                                  isNeg
+                                    ? "bg-red-50 border-red-200 text-red-600"
+                                    : "bg-slate-50 border-slate-200 text-slate-300"
+                                }">▲</button>
                                 <input type="number" 
                                   ${t.isValidated ? "disabled" : ""} 
                                   value="${displayVal}" 
@@ -613,10 +665,10 @@
 
             return `
                     <div id="table-card-${activeRound}-${
-              tIdx + 1
-            }" class="bg-white rounded-2xl border-2 transition-all shadow-sm ${
-              t.isValidated ? "border-emerald-500" : "border-slate-100"
-            }">
+                      tIdx + 1
+                    }" class="bg-white rounded-2xl border-2 transition-all shadow-sm ${
+                      t.isValidated ? "border-emerald-500" : "border-slate-100"
+                    }">
                         <div class="p-3 text-white font-bold flex justify-between items-center rounded-t-xl ${
                           t.isValidated ? "bg-emerald-500" : "bg-slate-700"
                         }">
@@ -625,8 +677,8 @@
                                 <input type="checkbox" onchange="toggleExtraSticks(${
                                   activeRound - 1
                                 }, ${tIdx}, this.checked)" ${
-              t.hasExtraSticks ? "checked" : ""
-            } ${t.isValidated ? "disabled" : ""} class="w-3 h-3">
+                                  t.hasExtraSticks ? "checked" : ""
+                                } ${t.isValidated ? "disabled" : ""} class="w-3 h-3">
                                 <span>卓外点棒あり</span>
                             </label>
                         </div>
@@ -635,10 +687,10 @@
                             <button onclick="confirmTable(${
                               activeRound - 1
                             }, ${tIdx})" class="w-full py-3 rounded-xl font-bold text-xs transition-all ${
-              t.isValidated
-                ? "bg-slate-100 text-slate-500 hover:bg-slate-200"
-                : "bg-emerald-600 text-white shadow-sm hover:bg-emerald-700"
-            }">
+                              t.isValidated
+                                ? "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                                : "bg-emerald-600 text-white shadow-sm hover:bg-emerald-700"
+                            }">
                                 ${t.isValidated ? "スコア修正" : "スコア確定"}
                             </button>
                         </div>
@@ -647,63 +699,36 @@
           .join("");
       }
 
-      function toggleNegative(rIdx, tIdx, pId) {
-        const table = tournament.rounds[rIdx].tables[tIdx];
-        const res = table.results.find((r) => r.playerId === pId);
-        res.score = res.score * -1;
-        renderSchedule();
-        save();
-      }
-
-      function updateScore(rIdx, tIdx, pId, val) {
-        const table = tournament.rounds[rIdx].tables[tIdx];
-        const res = table.results.find((r) => r.playerId === pId);
-        const isNeg = res.score < 0;
-        // 入力が空の場合は内部的に0にする
-        const numericVal = val === "" ? 0 : Math.abs(parseInt(val));
-        res.score = (isNeg ? -1 : 1) * numericVal * 100;
-        save();
-      }
-
-      function toggleExtraSticks(rIdx, tIdx, checked) {
-        tournament.rounds[rIdx].tables[tIdx].hasExtraSticks = checked;
-        save();
-      }
-
-      function confirmTable(rIdx, tIdx) {
-        const table = tournament.rounds[rIdx].tables[tIdx];
-        if (!table.isValidated) {
-          const totalScore = table.results.reduce((sum, r) => sum + r.score, 0);
-          const expectedTotal = tournament.config.startingPoints * 4;
-          if (!table.hasExtraSticks && totalScore !== expectedTotal) {
-            if (
-              !confirm(
-                `合計（${totalScore.toLocaleString()}）が初期点（${expectedTotal.toLocaleString()}）と一致しません。確定しますか？`
-              )
-            )
-              return;
-          }
-          table.results = calculateTableResult(table, tournament.config);
-          table.isValidated = true;
+      function handleSort(key) {
+        if (sortConfig.key === key) {
+          sortConfig.direction =
+            sortConfig.direction === "asc" ? "desc" : "asc";
         } else {
-          table.isValidated = false;
+          sortConfig.key = key;
+          sortConfig.direction = key === "totalPoints" ? "desc" : "asc";
         }
-        save();
-        renderSchedule();
+        renderStandings();
       }
 
       function renderStandings() {
         const standings = getStandings();
         const container = document.getElementById("standings-table-container");
+
+        const getSortIcon = (key) => {
+          if (sortConfig.key !== key) return "↕️";
+          return sortConfig.direction === "asc" ? "🔼" : "🔽";
+        };
+
         let roundsHeader = tournament.rounds
           .map((r) => `<th class="pb-4 px-2 text-right">R${r.roundNumber}</th>`)
           .join("");
+
         let rows = standings
           .map((s, i) => {
             let roundCells = tournament.rounds
               .map((r) => {
                 const table = r.tables.find((t) =>
-                  t.playerIds.includes(s.playerId)
+                  t.playerIds.includes(s.playerId),
                 );
                 const res = table
                   ? table.results.find((x) => x.playerId === s.playerId)
@@ -713,8 +738,8 @@
                   !isValid
                     ? "text-slate-200"
                     : res.point >= 0
-                    ? "text-slate-600"
-                    : "text-rose-400"
+                      ? "text-slate-600"
+                      : "text-rose-400"
                 }">
                         ${isValid ? formatP(res.point) : "-"}
                     </td>`;
@@ -727,8 +752,8 @@
                     <td class="py-4 px-2"><button onclick="viewIndividual('${
                       s.playerId
                     }')" class="font-bold text-emerald-700 hover:underline">${
-              s.playerName
-            }</button></td>
+                      s.displayIdx
+                    }. ${s.playerName}</button></td>
                     ${roundCells}
                     <td class="py-4 px-2 text-right font-black text-base ${
                       s.totalPoints >= 0 ? "text-emerald-600" : "text-rose-500"
@@ -736,7 +761,23 @@
                 </tr>`;
           })
           .join("");
-        container.innerHTML = `<table class="w-full text-left text-sm"><thead><tr class="text-slate-400 text-[10px] uppercase font-bold"><th>Rank</th><th>Player</th>${roundsHeader}<th>Total</th></tr></thead><tbody>${rows}</tbody></table>`;
+
+        container.innerHTML = `
+                <table class="w-full text-left text-sm">
+                    <thead>
+                        <tr class="text-slate-400 text-[10px] uppercase font-bold cursor-pointer">
+                            <th>Rank</th>
+                            <th onclick="handleSort('playerName')">Player ${getSortIcon(
+                              "playerName",
+                            )}</th>
+                            ${roundsHeader}
+                            <th onclick="handleSort('totalPoints')" class="text-right">Total ${getSortIcon(
+                              "totalPoints",
+                            )}</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>`;
       }
 
       function viewIndividual(pId) {
@@ -751,7 +792,10 @@
         select.innerHTML =
           '<option value="">プレイヤーを選択</option>' +
           tournament.players
-            .map((p) => `<option value="${p.id}">${p.name}</option>`)
+            .map(
+              (p, idx) =>
+                `<option value="${p.id}">${idx + 1}. ${p.name}</option>`,
+            )
             .join("");
         select.value = current;
       }
@@ -783,7 +827,7 @@
                                       r.roundNumber
                                     }回戦</span>
                                     ${
-                                      tournament.config.showSeats &&
+                                      tournament.config.seatMode === "random" &&
                                       seatIdx !== -1
                                         ? `<span class="text-[10px] bg-white border border-slate-200 px-1.5 py-0.5 rounded text-slate-400 font-bold">${SEAT_LABELS[seatIdx]}家</span>`
                                         : ""
@@ -807,9 +851,9 @@
           })
           .join("");
         content.innerHTML = `<div class="grid grid-cols-2 gap-4 mb-6"><div class="bg-emerald-50 p-4 rounded-xl text-center"><p class="text-[10px] text-emerald-600 font-bold uppercase">Total</p><p class="text-xl font-black">${formatP(
-          stats.totalPoints
+          stats.totalPoints,
         )}</p></div><div class="bg-slate-50 p-4 rounded-xl text-center"><p class="text-[10px] text-slate-400 font-bold uppercase">Avg Rank</p><p class="text-xl font-black">${stats.averageRank.toFixed(
-          2
+          2,
         )}</p></div></div><div class="space-y-3"> ${historyHtml} </div>`;
       }
 
@@ -825,7 +869,7 @@
             targetTable.classList.add("jump-highlight");
             setTimeout(
               () => targetTable.classList.remove("jump-highlight"),
-              2000
+              2000,
             );
           }
         }, 150);
@@ -841,6 +885,13 @@
         }
       }
       function handleSample() {
+        if (
+          !confirm(
+            "サンプルモードを表示します。現在入力のデータは上書きされますがよろしいですか？",
+          )
+        )
+          return;
+
         document.getElementById("playerInput").value = [
           "アカギ",
           "カイジ",
@@ -856,11 +907,11 @@
         tournament.rounds.forEach((r) =>
           r.tables.forEach((t) => {
             t.results.forEach(
-              (res, i) => (res.score = [40000, 30000, 20000, 10000][i])
+              (res, i) => (res.score = [41000, 29000, 24900, 5100][i]),
             );
             t.results = calculateTableResult(t, tournament.config);
             t.isValidated = true;
-          })
+          }),
         );
         save();
         renderStandings();
@@ -874,6 +925,7 @@
           enableNav();
           switchView("standings");
         }
+        updatePlayerCount();
       };
     </script>
   </body>
