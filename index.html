@@ -368,6 +368,7 @@
                 score: 0,
                 point: 0,
                 rank: 0,
+                isNegativeMode: false, // マイナスボタンの状態保持用
               })),
               isValidated: false,
               hasExtraSticks: false,
@@ -437,7 +438,6 @@
         }
       }
 
-      // ヘルパー：表示用の名前（番号付き）を取得
       function getDisplayName(pId) {
         if (!tournament) return "";
         const idx = tournament.players.findIndex((p) => p.id === pId);
@@ -611,7 +611,7 @@
               .map((pId, pIdx) => {
                 const displayName = getDisplayName(pId);
                 const res = t.results.find((x) => x.playerId === pId);
-                const isNeg = res.score < 0;
+                const isNeg = res.isNegativeMode || res.score < 0;
                 const displayVal =
                   res.score === 0 ? "" : Math.abs(res.score / 100);
 
@@ -684,15 +684,24 @@
                         </div>
                         <div class="p-5 space-y-4">
                             ${resultsHtml}
-                            <button onclick="confirmTable(${
-                              activeRound - 1
-                            }, ${tIdx})" class="w-full py-3 rounded-xl font-bold text-xs transition-all ${
-                              t.isValidated
-                                ? "bg-slate-100 text-slate-500 hover:bg-slate-200"
-                                : "bg-emerald-600 text-white shadow-sm hover:bg-emerald-700"
-                            }">
-                                ${t.isValidated ? "スコア修正" : "スコア確定"}
-                            </button>
+                            <div class="flex gap-2">
+                                <button onclick="resetTable(${
+                                  activeRound - 1
+                                }, ${tIdx})" 
+                                    ${t.isValidated ? "disabled" : ""}
+                                    class="px-3 py-3 rounded-xl font-bold text-xs bg-slate-100 text-slate-500 hover:bg-slate-200 disabled:opacity-50">
+                                    リセット
+                                </button>
+                                <button onclick="confirmTable(${
+                                  activeRound - 1
+                                }, ${tIdx})" class="flex-grow py-3 rounded-xl font-bold text-xs transition-all ${
+                                  t.isValidated
+                                    ? "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                                    : "bg-emerald-600 text-white shadow-sm hover:bg-emerald-700"
+                                }">
+                                    ${t.isValidated ? "スコア修正" : "スコア確定"}
+                                </button>
+                            </div>
                         </div>
                     </div>`;
           })
@@ -767,8 +776,8 @@
                     <thead>
                         <tr class="text-slate-400 text-[10px] uppercase font-bold cursor-pointer">
                             <th>Rank</th>
-                            <th onclick="handleSort('playerName')">Player ${getSortIcon(
-                              "playerName",
+                            <th onclick="handleSort('displayIdx')">Player ${getSortIcon(
+                              "displayIdx",
                             )}</th>
                             ${roundsHeader}
                             <th onclick="handleSort('totalPoints')" class="text-right">Total ${getSortIcon(
@@ -873,6 +882,83 @@
             );
           }
         }, 150);
+      }
+
+      function updateScore(rIdx, tIdx, pId, val) {
+        if (!tournament) return;
+        const table = tournament.rounds[rIdx].tables[tIdx];
+        const res = table.results.find((r) => r.playerId === pId);
+
+        let numVal = val === "" ? 0 : parseInt(val, 10);
+        if (isNaN(numVal)) numVal = 0;
+
+        // 現在マイナスモード、もしくは既にマイナス値ならマイナスとして計算
+        const isNegative = res.isNegativeMode || res.score < 0;
+        res.score = numVal * 100 * (isNegative ? -1 : 1);
+
+        // 数値が入った後は、計算後の符号が正しければモードをオフにする（見た目調整のため）
+        if (numVal > 0) res.isNegativeMode = isNegative;
+
+        save();
+      }
+
+      function toggleNegative(rIdx, tIdx, pId) {
+        const table = tournament.rounds[rIdx].tables[tIdx];
+        const res = table.results.find((r) => r.playerId === pId);
+
+        // 符号を反転させる
+        res.isNegativeMode = !res.isNegativeMode;
+
+        // 既に数値が入っている場合は即座に符号を反映
+        if (res.score !== 0) {
+          res.score *= -1;
+          // 数値がある場合は計算後の符号に合わせる
+          res.isNegativeMode = res.score < 0;
+        }
+
+        save();
+        renderSchedule();
+      }
+
+      function toggleExtraSticks(rIdx, tIdx, checked) {
+        tournament.rounds[rIdx].tables[tIdx].hasExtraSticks = checked;
+        save();
+      }
+
+      function resetTable(rIdx, tIdx) {
+        if (!confirm("入力内容をリセット（0点）しますか？")) return;
+        const table = tournament.rounds[rIdx].tables[tIdx];
+        table.results.forEach((r) => {
+          r.score = 0;
+          r.isNegativeMode = false;
+        });
+        save();
+        renderSchedule();
+      }
+
+      function confirmTable(rIdx, tIdx) {
+        const table = tournament.rounds[rIdx].tables[tIdx];
+        if (table.isValidated) {
+          if (!confirm("確定を解除して修正しますか？")) return;
+          table.isValidated = false;
+          save();
+          renderSchedule();
+          return;
+        }
+
+        const currentTotal = table.results.reduce((sum, r) => sum + r.score, 0);
+        const expectedTotal = tournament.config.startingPoints * 4;
+
+        if (!table.hasExtraSticks && currentTotal !== expectedTotal) {
+          const diff = currentTotal - expectedTotal;
+          const msg = `点数が合いません。\n\n現在の合計: ${currentTotal}\n規定の合計: ${expectedTotal}\n差分: ${diff}\n\nこのまま確定しますか？`;
+          if (!confirm(msg)) return;
+        }
+
+        table.results = calculateTableResult(table, tournament.config);
+        table.isValidated = true;
+        save();
+        renderSchedule();
       }
 
       function save() {
