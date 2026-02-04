@@ -1,4 +1,4 @@
-# Mahjong Master Manager
+# 麻雀大会開く
 
 ## 制作アプリの説明
 
